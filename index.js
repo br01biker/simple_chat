@@ -33,6 +33,14 @@ io.on('connection', (socket) => {
     socket.on('search', () => {
         console.log(`User ${socket.id} looking for match...`);
         
+        // 1. Notify and clear existing partner if any (when user clicks "Next")
+        const oldPartnerId = connectedPairs.get(socket.id);
+        if (oldPartnerId) {
+            io.to(oldPartnerId).emit('partner_left');
+            connectedPairs.delete(oldPartnerId);
+            connectedPairs.delete(socket.id);
+        }
+
         // Clean out any stale/disconnected users from the waiting list
         while (waitingUsers.length > 0) {
             const partnerSocket = waitingUsers.pop();
@@ -49,8 +57,10 @@ io.on('connection', (socket) => {
             }
         }
         
-        // No valid partner found, add current user to waiting list
-        waitingUsers.push(socket);
+        // No valid partner found, add current user to waiting list if not already there
+        if (!waitingUsers.includes(socket)) {
+            waitingUsers.push(socket);
+        }
     });
 
     socket.on('offer', (data) => {
@@ -94,17 +104,16 @@ io.on('connection', (socket) => {
 
         const partnerId = connectedPairs.get(socket.id);
         if (partnerId) {
-            io.to(partnerId).emit('chat_message', "Partner left");
+            io.to(partnerId).emit('partner_left');
             connectedPairs.delete(socket.id);
             connectedPairs.delete(partnerId);
         }
     });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log('-----------------------------------');
     console.log(`Server running on port ${PORT}`);
-    console.log(`Local Access: http://localhost:${PORT}`);
     console.log('-----------------------------------');
 });
